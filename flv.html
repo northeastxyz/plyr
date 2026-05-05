@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FLV Player - CORS Fix</title>
+    <title>FLV Player - Direct</title>
     <script src="https://cdn.jsdelivr.net/npm/flv.js@1.6.2/dist/flv.min.js"></script>
     <style>
         body { margin: 0; background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
@@ -18,15 +18,12 @@
         if (flvjs.isSupported()) {
             const videoElement = document.getElementById('videoElement');
             const params = new URLSearchParams(window.location.search);
-            const rawUrl = params.get('url');
+            const flvUrl = params.get('url');
 
-            if (rawUrl) {
-                // Menggunakan AllOrigins Proxy untuk menembus CORS Error
-                const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(rawUrl);
-
+            if (flvUrl) {
                 const flvPlayer = flvjs.createPlayer({
-                    type: 'flv',
-                    url: proxyUrl, // URL yang sudah dibungkus proxy
+                    type: 'flv', // Memaksa format FLV meski tanpa ekstensi
+                    url: flvUrl,
                     isLive: true,
                     cors: true
                 }, {
@@ -36,10 +33,7 @@
                 
                 flvPlayer.attachMediaElement(videoElement);
                 flvPlayer.load();
-                
-                flvPlayer.play().catch(e => {
-                    console.log("Autoplay diblokir browser, klik play manual.");
-                });
+                flvPlayer.play().catch(e => console.log("Autoplay blocked"));
 
                 flvPlayer.on(flvjs.Events.ERROR, (errType, errDetail) => {
                     console.error('FLV Error:', errType, errDetail);
