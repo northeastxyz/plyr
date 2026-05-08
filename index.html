@@ -2,25 +2,29 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shaka Player Pro - Manual Resolution</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Shaka Player Android Optimized</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@4.3.5/dist/controls.css">
     <style>
-        body { margin: 0; background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
-        .video-container { width: 100%; height: 100%; }
+        body { margin: 0; background: #000; height: 100vh; display: flex; flex-direction: column; }
+        .video-container { width: 100%; height: 100%; position: relative; }
         video { width: 100%; height: 100%; }
-        /* Memperjelas tampilan menu agar tidak tertutup */
-        .shaka-overflow-menu, .shaka-settings-menu { 
-            background-color: rgba(20, 20, 20, 0.95); 
-            color: white; 
-            border-radius: 4px;
+        
+        /* Memperbesar tombol di Android agar mudah di-klik jari */
+        .shaka-range-container { margin: 0 10px; }
+        .shaka-bottom-controls { display: flex; align-items: center; }
+        
+        /* Memastikan menu resolusi terlihat jelas */
+        .shaka-settings-menu, .shaka-overflow-menu {
+            background-color: rgba(30, 30, 30, 0.9) !important;
+            font-size: 14px !important;
         }
     </style>
 </head>
 <body>
 
     <div class="video-container" data-shaka-player-container>
-        <video data-shaka-player id="video" autoplay></video>
+        <video data-shaka-player id="video" autoplay playsinline></video>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/shaka-player@4.3.5/dist/shaka-player.ui.js"></script>
@@ -32,46 +36,48 @@
             const controls = ui.getControls();
             const player = controls.getPlayer();
 
-            // KONFIGURASI UI AGAR TOMBOL RESOLUSI MUNCUL
+            // KONFIGURASI KHUSUS MOBILE
             const uiConfig = {
-                // Menambahkan 'quality' langsung di bar utama dan di menu overflow (gear)
-                'controlPanelElements': ['play_pause', 'time_and_duration', 'spacer', 'quality', 'mute', 'volume', 'fullscreen', 'overflow_menu'],
-                'overflowMenuButtons' : ['quality', 'playback_rate', 'language', 'picture_in_picture'],
-                'addQualityControls': true, // Wajib TRUE untuk memaksa menu resolusi
-                'forceTransmuxTS': true
+                'controlPanelElements': ['play_pause', 'time_and_duration', 'spacer', 'quality', 'mute', 'fullscreen', 'overflow_menu'],
+                'overflowMenuButtons' : ['quality', 'playback_rate'],
+                'addQualityControls': true,
+                'forceTransmuxTS': true,
+                'doubleTapToSeek': true, // Fitur tambahan ala YouTube
+                'enableTooltips': false  // Matikan tooltip agar tidak mengganggu di layar kecil
             };
             ui.configure(uiConfig);
 
-            // Konfigurasi ABR (Auto Bitrate) - Agar tidak otomatis pindah jika kita pilih manual
+            // Memastikan Shaka tidak menyerahkan kontrol ke player bawaan Android
             player.configure({
-                abr: { enabled: true } // Tetap true di awal, Shaka akan otomatis handle saat user pilih manual
+                streaming: {
+                    useNativeHlsOnSafari: false,
+                },
+                abr: {
+                    enabled: true // Ini yang memunculkan pilihan "Auto"
+                }
             });
 
             const params = new URLSearchParams(window.location.search);
             const mpdUrl = params.get('mpd');
             const keyPair = params.get('key');
 
-            // DRM ClearKey
             if (keyPair && keyPair.includes(':')) {
                 const [kid, key] = keyPair.split(':');
                 player.configure({
-                    drm: {
-                        clearKeys: { [kid]: key }
-                    }
+                    drm: { clearKeys: { [kid]: key } }
                 });
             }
 
             if (mpdUrl) {
                 try {
                     await player.load(mpdUrl);
-                    console.log('Video Berhasil Dimuat!');
+                    console.log('Video Loaded!');
                 } catch (e) {
-                    console.error('Error load video:', e);
+                    console.error('Error:', e);
                 }
             }
         }
 
-        // Listener untuk memuat UI
         document.addEventListener('shaka-ui-loaded', initPlayer);
     </script>
 </body>
