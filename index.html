@@ -3,15 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shaka Player Quality Selector</title>
-    <!-- Shaka Player UI Styles -->
+    <title>Shaka Player Pro - Manual Resolution</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@4.3.5/dist/controls.css">
     <style>
         body { margin: 0; background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
         .video-container { width: 100%; height: 100%; }
         video { width: 100%; height: 100%; }
-        /* Mempercantik tampilan menu setting */
-        .shaka-overflow-menu { background-color: rgba(0, 0, 0, 0.8); }
+        /* Memperjelas tampilan menu agar tidak tertutup */
+        .shaka-overflow-menu, .shaka-settings-menu { 
+            background-color: rgba(20, 20, 20, 0.95); 
+            color: white; 
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
@@ -20,7 +23,6 @@
         <video data-shaka-player id="video" autoplay></video>
     </div>
 
-    <!-- Shaka Player Library & UI -->
     <script src="https://cdn.jsdelivr.net/npm/shaka-player@4.3.5/dist/shaka-player.ui.js"></script>
 
     <script>
@@ -30,17 +32,26 @@
             const controls = ui.getControls();
             const player = controls.getPlayer();
 
-            // KONTROL RESOLUSI: Mengaktifkan tombol resolusi di menu gear
-            const config = {
-                'controlPanelElements': ['play_pause', 'time_and_duration', 'spacer', 'mute', 'volume', 'fullscreen', 'overflow_menu'],
-                'overflowMenuButtons' : ['quality', 'playback_rate', 'language', 'picture_in_picture']
+            // KONFIGURASI UI AGAR TOMBOL RESOLUSI MUNCUL
+            const uiConfig = {
+                // Menambahkan 'quality' langsung di bar utama dan di menu overflow (gear)
+                'controlPanelElements': ['play_pause', 'time_and_duration', 'spacer', 'quality', 'mute', 'volume', 'fullscreen', 'overflow_menu'],
+                'overflowMenuButtons' : ['quality', 'playback_rate', 'language', 'picture_in_picture'],
+                'addQualityControls': true, // Wajib TRUE untuk memaksa menu resolusi
+                'forceTransmuxTS': true
             };
-            ui.configure(config);
+            ui.configure(uiConfig);
+
+            // Konfigurasi ABR (Auto Bitrate) - Agar tidak otomatis pindah jika kita pilih manual
+            player.configure({
+                abr: { enabled: true } // Tetap true di awal, Shaka akan otomatis handle saat user pilih manual
+            });
 
             const params = new URLSearchParams(window.location.search);
             const mpdUrl = params.get('mpd');
             const keyPair = params.get('key');
 
+            // DRM ClearKey
             if (keyPair && keyPair.includes(':')) {
                 const [kid, key] = keyPair.split(':');
                 player.configure({
@@ -60,6 +71,7 @@
             }
         }
 
+        // Listener untuk memuat UI
         document.addEventListener('shaka-ui-loaded', initPlayer);
     </script>
 </body>
