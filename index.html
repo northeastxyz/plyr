@@ -3,92 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fixed MPD Mobile</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@4.3.5/dist/controls.css">
+    <title>Plyr MPD - Mobile Optimized</title>
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
     <style>
         html, body { 
             margin: 0; padding: 0; width: 100%; height: 100%; 
             background: #000; overflow: hidden; 
         }
-        
-        .video-container { 
-            width: 100vw; 
-            height: 100vh; 
-            display: flex; 
-            align-items: center; 
+        .container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
             justify-content: center;
         }
-
-        video { width: 100%; height: 100%; object-fit: contain; }
-
-        /* PERBAIKAN UTAMA: Menaikkan posisi control bar */
-        .shaka-controls-container {
-            bottom: 40px !important; /* Naikkan 40px supaya tidak tertutup tombol navigasi HP */
-            display: flex;
+        /* Memastikan player tidak terpotong tombol navigasi HP */
+        .plyr {
+            width: 100%;
+            max-height: 100%;
         }
-
-        .shaka-bottom-controls {
-            padding: 0 10px 10px 10px !important;
-        }
-
-        /* Memperkecil ikon supaya muat di layar HP */
-        .shaka-controls-button {
-            padding: 2px !important;
-        }
-        
-        .shaka-overflow-menu {
-            background: rgba(20, 20, 20, 0.95) !important;
-            bottom: 80px !important; /* Menu gear muncul lebih ke atas */
-        }
+        /* Custom warna kontrol jika ingin (opsional) */
+        :root { --plyr-color-main: #00b3ff; }
     </style>
 </head>
 <body>
 
-    <div class="video-container" data-shaka-player-container>
-        <video data-shaka-player id="video" autoplay playsinline></video>
+    <div class="container">
+        <video id="player" playsinline controls></video>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/shaka-player@4.3.5/dist/shaka-player.ui.js"></script>
+    <script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
+    <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
 
     <script>
-        async function init() {
-            const video = document.getElementById('video');
-            const ui = video['ui'];
-            const controls = ui.getControls();
-            const player = controls.getPlayer();
-
-            ui.configure({
-                'controlPanelElements': ['play_pause', 'spacer', 'quality', 'mute', 'fullscreen', 'overflow_menu'],
-                'addQualityControls': true,
-                'fadeDelay': 5000 
-            });
-
-            player.configure({
-                abr: { enabled: true },
-                streaming: { jumpLargeGaps: true }
-            });
-
+        document.addEventListener('DOMContentLoaded', () => {
+            const video = document.getElementById('player');
             const params = new URLSearchParams(window.location.search);
             const mpdUrl = params.get('mpd');
             const keyPair = params.get('key');
 
+            if (!mpdUrl) return;
+
+            // 1. Inisialisasi Dash.js
+            const dashPlayer = dashjs.MediaPlayer().create();
+            
+            // Konfigurasi DRM ClearKey jika ada
             if (keyPair && keyPair.includes(':')) {
                 const [kid, key] = keyPair.split(':');
-                player.configure({
-                    drm: { clearKeys: { [kid]: key } }
+                dashPlayer.setProtectionData({
+                    "org.w3.clearkey": {
+                        "clearkeys": { [kid]: key }
+                    }
                 });
             }
 
-            if (mpdUrl) {
-                try {
-                    await player.load(mpdUrl);
-                } catch (e) {
-                    console.error('Error load:', e);
-                }
-            }
-        }
+            dashPlayer.initialize(video, mpdUrl, true);
 
-        document.addEventListener('shaka-ui-loaded', init);
+            // 2. Inisialisasi Plyr
+            const player = new Plyr(video, {
+                controls: [
+                    'play-large', 'play', 'progress', 'current-time', 
+                    'mute', 'volume', 'settings', 'fullscreen'
+                ],
+                settings: ['quality', 'speed'],
+                tooltips: { controls: false, seek: true }
+            });
+
+            // 3. Menghubungkan Kualitas Dash ke Menu Plyr
+            dashPlayer.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, function () {
+                const availableQualities = dashPlayer.getBitrateInfoListFor("video").map(m => m.height);
+                
+                player.config.quality = {
+                    default: availableQualities[0],
+                    options: availableQualities,
+                    forced: true,
+                    onChange: (newQuality) => {
+                        dashPlayer.getBitrateInfoListFor("video").forEach((m) => {
+                            if (m.height === newQuality) {
+                                dashPlayer.setQualityFor("video", m.bitrateIndex);
+                            }
+                        });
+                    }
+                };
+            });
+
+            // Handle klik layar untuk show/hide controls yang lebih responsif
+            video.addEventListener('touchstart', () => {
+                if (player.showing) player.toggleControls(true);
+            });
+        });
     </script>
 </body>
 </html>
