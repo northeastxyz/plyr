@@ -3,70 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Stream Player</title>
-    <script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
+    <title>Pro Player</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.min.css">
     <style>
-        /* Membuat tampilan benar-benar bersih dan hitam pekat */
-        html, body { 
-            margin: 0; 
-            padding: 0; 
-            width: 100%; 
-            height: 100%; 
-            background: #000; 
-            overflow: hidden; 
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        video { 
-            width: 100%; 
-            height: 100%; 
-            background: #000;
-        }
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+        #video-container { width: 100vw; height: 100vh; }
+        video { width: 100%; height: 100%; }
     </style>
 </head>
 <body>
 
-    <video id="videoPlayer" controls autoplay playsinline></video>
+    <div id="video-container" data-shaka-player-container>
+        <video id="video" data-shaka-player autoplay playsinline></video>
+    </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const videoElement = document.getElementById('videoPlayer');
-            
-            // Mengambil data dari URL parameter
-            // Format: ?mpd=URL_MPD&key=KID:KEY
+        async function initPlayer() {
+            const video = document.getElementById('video');
+            const ui = video['ui'];
+            const controls = ui.getControls();
+            const player = controls.getPlayer();
+
+            // Ambil parameter dari link
             const params = new URLSearchParams(window.location.search);
             const mpdUrl = params.get('mpd');
             const keyPair = params.get('key');
 
-            if (!mpdUrl) {
-                console.error("Link MPD tidak ditemukan di URL.");
-                return;
-            }
+            if (!mpdUrl) return;
 
-            const player = dashjs.MediaPlayer().create();
-
-            // Setup DRM jika parameter key ada
+            // Setup ClearKey
             if (keyPair && keyPair.includes(':')) {
                 const [kid, key] = keyPair.split(':');
-                player.setProtectionData({
-                    "org.w3.clearkey": {
-                        "clearkeys": { [kid.trim()]: key.trim() }
+                player.configure({
+                    drm: {
+                        clearKeys: {
+                            [kid.trim()]: key.trim()
+                        }
                     }
                 });
             }
 
-            // Inisialisasi dan putar
-            player.initialize(videoElement, mpdUrl, true);
+            try {
+                await player.load(mpdUrl);
+                console.log('Video berhasil dimuat!');
+            } catch (e) {
+                console.error('Gagal memutar:', e);
+            }
+        }
 
-            // Pengaturan tambahan agar streaming lebih lancar
-            player.updateSettings({
-                'streaming': {
-                    'lowLatencyEnabled': true,
-                    'abr': { 'useDefaultABRRules': true }
-                }
-            });
-        });
+        document.addEventListener('shaka-ui-loaded', initPlayer);
     </script>
 </body>
 </html>
