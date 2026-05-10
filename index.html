@@ -3,43 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MPD Player - Mobile Optimized</title>
+    <title>Fixed Mobile Player</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@4.3.5/dist/controls.css">
     <style>
-        /* Menghilangkan margin dan memastikan body tidak bisa scroll */
         html, body { 
-            margin: 0; 
-            padding: 0; 
-            background: #000; 
-            height: 100%; 
-            width: 100%; 
-            overflow: hidden; 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            background: #000; overflow: hidden; 
         }
-
-        /* Container dibuat flex agar video berada di tengah dan pas di layar */
+        /* Memastikan container benar-benar pas di layar HP */
         .video-container { 
-            width: 100%; 
-            height: 100vh; /* Memenuhi layar tapi tetap dalam batas viewport */
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            width: 100vw; height: 100vh; 
+            display: flex; align-items: center; justify-content: center;
         }
+        video { width: 100%; height: 100%; }
 
-        video { 
-            width: 100%; 
-            height: 100%; 
-            object-fit: contain; /* Memastikan video tidak terpotong */
-        }
-
-        /* Memperkecil UI Shaka agar tidak menumpuk di layar HP */
-        .shaka-controls-container {
-            font-size: 12px !important;
-        }
+        /* Memaksa kontrol agar lebih terlihat di mobile */
+        .shaka-controls-container { opacity: 1 !important; }
+        .shaka-bottom-controls { padding: 5px !important; }
         
+        /* Memperbesar tombol menu agar tidak susah ditekan */
         .shaka-overflow-menu, .shaka-settings-menu {
-            background-color: rgba(30, 30, 30, 0.9) !important;
-            max-height: 80vh; /* Agar menu tidak melebihi layar */
-            overflow-y: auto;
+            background: rgba(20, 20, 20, 0.95) !important;
+            min-width: 150px !important;
         }
     </style>
 </head>
@@ -58,19 +43,18 @@
             const controls = ui.getControls();
             const player = controls.getPlayer();
 
-            // Konfigurasi agar tombol resolusi (quality) muncul langsung di bar utama
+            // KONFIGURASI UI SPESIFIK AGAR KONTROL TIDAK NGUMPET
             ui.configure({
                 'controlPanelElements': ['play_pause', 'spacer', 'quality', 'mute', 'fullscreen', 'overflow_menu'],
-                'overflowMenuButtons' : ['quality', 'playback_rate'],
-                'addQualityControls': true
+                'addQualityControls': true,
+                'enableTooltips': false,
+                // Mengatur waktu kontrol menghilang (ms), set lebih lama agar tidak cepat hilang
+                'fadeDelay': 5000 
             });
 
             player.configure({
                 abr: { enabled: true },
-                streaming: { 
-                    lowLatencyMode: true,
-                    jumpLargeGaps: true 
-                }
+                streaming: { jumpLargeGaps: true }
             });
 
             const params = new URLSearchParams(window.location.search);
