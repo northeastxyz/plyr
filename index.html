@@ -2,55 +2,86 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Dash.js Official Player</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal DRM Player</title>
     <script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
     <style>
-        html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
-        .video-wrapper { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-        video { width: 100%; height: auto; max-height: 100%; }
+        body { margin: 0; padding: 0; background: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; }
         
-        /* UI Sederhana agar tidak tertutup tombol navigasi HP */
-        #controls {
-            position: absolute;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 10px;
-            z-index: 10;
+        /* Video Player Area */
+        .player-container { width: 100%; max-width: 800px; background: #000; aspect-ratio: 16/9; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 20px rgba(0,0,0,0.6); }
+        video { width: 100%; height: 100%; }
+
+        /* Input Area */
+        .input-card { background: #161b22; width: 90%; max-width: 760px; margin: 20px 0; padding: 20px; border-radius: 12px; border: 1px solid #30363d; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-size: 12px; color: #8b949e; text-transform: uppercase; margin-bottom: 5px; font-weight: bold; }
+        input { width: 100%; padding: 10px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #fff; box-sizing: border-box; }
+        .btn-play { width: 100%; padding: 12px; background: #238636; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn-play:hover { background: #2ea043; }
+
+        /* Channel List Area */
+        #channel-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 15px;
+            width: 90%;
+            max-width: 800px;
+            padding-bottom: 50px;
         }
-        select { background: rgba(0,0,0,0.7); color: white; border: 1px solid #444; padding: 5px; border-radius: 4px; }
+        .channel { cursor: pointer; text-align: center; }
+        .channel img {
+            width: 100%; aspect-ratio: 1/1; object-fit: contain;
+            background: #fff; border-radius: 10px; padding: 5px;
+            border: 2px solid transparent; transition: 0.2s;
+        }
+        .channel:hover img { transform: translateY(-5px); border-color: #58a6ff; }
+        .channel-name { font-size: 11px; margin-top: 5px; color: #8b949e; }
     </style>
 </head>
 <body>
 
-    <div class="video-wrapper">
+    <div class="player-container">
         <video id="videoPlayer" controls playsinline></video>
     </div>
 
-    <div id="controls">
-        <select id="qualitySelect">
-            <option value="-1">Auto Resolution</option>
-        </select>
+    <div class="input-card">
+        <div class="input-group">
+            <label>Stream URL (MPD)</label>
+            <input type="text" id="urlInput" placeholder="Masukkan link .mpd di sini...">
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <div style="flex: 1;">
+                <label>Key ID (KID)</label>
+                <input type="text" id="kidInput" placeholder="Hex KID">
+            </div>
+            <div style="flex: 1;">
+                <label>Key</label>
+                <input type="text" id="keyInput" placeholder="Hex Key">
+            </div>
+        </div>
+        <button class="btn-play" onclick="startManual()">▶ PUTAR SEKARANG</button>
     </div>
 
+    <div id="channel-list">
+        </div>
+
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const video = document.getElementById('videoPlayer');
-            const qualitySelect = document.getElementById('qualitySelect');
-            
-            const params = new URLSearchParams(window.location.search);
-            const mpdUrl = params.get('mpd');
-            const keyPair = params.get('key');
+        const player = dashjs.MediaPlayer().create();
+        const videoElement = document.getElementById('videoPlayer');
 
-            if (!mpdUrl) return;
+        // Fungsi Putar Manual
+        function startManual() {
+            const url = document.getElementById('urlInput').value.trim();
+            const kid = document.getElementById('kidInput').value.trim();
+            const key = document.getElementById('keyInput').value.trim();
 
-            const player = dashjs.MediaPlayer().create();
+            if (!url) {
+                alert("Masukkan link MPD terlebih dahulu!");
+                return;
+            }
 
-            // Konfigurasi DRM ClearKey
-            if (keyPair && keyPair.includes(':')) {
-                const [kid, key] = keyPair.split(':');
+            if (kid && key) {
                 player.setProtectionData({
                     "org.w3.clearkey": {
                         "clearkeys": { [kid]: key }
@@ -58,40 +89,28 @@
                 });
             }
 
-            // Inisialisasi Player
-            player.initialize(video, mpdUrl, true);
+            player.initialize(videoElement, url, true);
+        }
 
-            // Logika Mengisi Menu Resolusi
-            player.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, function () {
-                const bitrates = player.getBitrateInfoListFor("video");
-                bitrates.forEach((info, index) => {
-                    const option = document.createElement("option");
-                    option.value = index;
-                    option.text = info.height + "p (" + Math.round(info.bitrate / 1000) + "kbps)";
-                    qualitySelect.appendChild(option);
-                });
-            });
+        // Contoh Data Channel (Hanya untuk isi daftar di bawah)
+        const savedChannels = [
+            { name: "CH 5", logo: "https://ais-s.ais-vidnt.com/ais/play/origin/LIVE/channelicon/ch5new.logo.png", url: "", kid: "", key: "" },
+            { name: "CH 2", logo: "https://ais-s.ais-vidnt.com/ais/play/origin/LIVE//channelicon/0001.png", url: "", kid: "", key: "" }
+        ];
 
-            // Ganti Resolusi Manual
-            qualitySelect.addEventListener('change', function() {
-                const level = parseInt(this.value);
-                player.updateSettings({
-                    'streaming': {
-                        'abr': { 'enabled': level === -1 }
-                    }
-                });
-                if (level !== -1) {
-                    player.setQualityFor("video", level);
-                }
-            });
-            
-            // Auto-hide menu resolusi jika tidak ada interaksi
-            let timeout;
-            document.addEventListener('touchstart', () => {
-                qualitySelect.style.opacity = '1';
-                clearTimeout(timeout);
-                timeout = setTimeout(() => qualitySelect.style.opacity = '0', 3000);
-            });
+        // Render Shortcut Channel
+        const listContainer = document.getElementById("channel-list");
+        savedChannels.forEach(ch => {
+            const div = document.createElement("div");
+            div.className = "channel";
+            div.innerHTML = `<img src="${ch.logo}"><div class="channel-name">${ch.name}</div>`;
+            div.onclick = () => {
+                document.getElementById('urlInput').value = ch.url;
+                document.getElementById('kidInput').value = ch.kid;
+                document.getElementById('keyInput').value = ch.key;
+                if(ch.url) startManual();
+            };
+            listContainer.appendChild(div);
         });
     </script>
 </body>
