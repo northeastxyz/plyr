@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>HLS Live Player</title>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+<style>
+    *{
+        margin:0;
+        padding:0;
+        box-sizing:border-box;
+    }
+
+    body{
+        width:100vw;
+        height:100vh;
+        background:#000;
+        overflow:hidden;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+    }
+
+    #videoElement{
+        width:100vw;
+        height:100vh;
+        background:#000;
+        object-fit:contain;
+    }
+
+    #loading{
+        position:absolute;
+        color:white;
+        font-family:sans-serif;
+        font-size:14px;
+        z-index:999;
+    }
+
+    #error{
+        position:absolute;
+        bottom:20px;
+        left:20px;
+        right:20px;
+        color:red;
+        font-family:sans-serif;
+        font-size:14px;
+        z-index:999;
+        word-break:break-word;
+    }
+</style>
+</head>
+
+<body>
+
+<div id="loading">Loading stream...</div>
+
+<div id="error"></div>
+
+<video
+    id="videoElement"
+    controls
+    autoplay
+    muted
+    playsinline
+></video>
+
+<script>
+
+const loading = document.getElementById('loading');
+const errorBox = document.getElementById('error');
+const videoElement = document.getElementById('videoElement');
+
+function showError(msg){
+    console.error(msg);
+    errorBox.innerText = msg;
+}
+
+const params = new URLSearchParams(window.location.search);
+
+const hlsUrl = params.get('url');
+
+if (!hlsUrl) {
+
+    showError('Missing ?url=');
+
+} else {
+
+    // Safari native HLS support
+    if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+
+        videoElement.src = hlsUrl;
+
+        videoElement.addEventListener('loadedmetadata', () => {
+            loading.style.display = 'none';
+            videoElement.play().catch(() => {});
+        });
+
+    }
+
+    // HLS.js support
+    else if (Hls.isSupported()) {
+
+        const hls = new Hls({
+            liveSyncDurationCount: 3,
+            enableWorker: true,
+            lowLatencyMode: true
+        });
+
+        hls.loadSource(hlsUrl);
+
+        hls.attachMedia(videoElement);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            loading.style.display = 'none';
+            videoElement.play().catch(() => {});
+        });
+
+        hls.on(Hls.Events.ERROR, function(event, data) {
+
+            console.error(data);
+
+            showError(
+                'HLS Error: ' +
+                data.type +
+                ' | ' +
+                data.details
+            );
+
+            // Auto recover
+            if (data.fatal) {
+
+                switch(data.type) {
+
+                    case Hls.ErrorTypes.NETWORK_ERROR:
+                        hls.startLoad();
+                        break;
+
+                    case Hls.ErrorTypes.MEDIA_ERROR:
+                        hls.recoverMediaError();
+                        break;
+
+                    default:
+                        hls.destroy();
+                        break;
+                }
+            }
+        });
+
+    } else {
+
+        showError('HLS not supported in this browser');
+
+    }
+
+    videoElement.addEventListener('playing', () => {
+        loading.style.display = 'none';
+    });
+
+    videoElement.addEventListener('waiting', () => {
+        loading.style.display = 'block';
+    });
+
+    videoElement.addEventListener('click', () => {
+        videoElement.play();
+    });
+
+}
+
+</script>
+
+</body>
+</html>
