@@ -41,17 +41,18 @@ body{
     color:white;
     font-family:sans-serif;
     font-size:14px;
+    color:white;
     z-index:999;
 }
 
 #error{
     position:absolute;
-    bottom:20px;
-    left:20px;
-    right:20px;
+    bottom:10px;
+    left:10px;
+    right:10px;
     color:red;
+    font-size:12px;
     font-family:sans-serif;
-    font-size:14px;
     z-index:999;
     word-break:break-word;
 }
@@ -93,10 +94,6 @@ async function init() {
 
     const params = new URLSearchParams(window.location.search);
 
-    // Support:
-    // ?m3u8=
-    // ?url=
-
     const hlsUrl =
         params.get('m3u8') ||
         params.get('url');
@@ -108,50 +105,21 @@ async function init() {
         return;
     }
 
-    // =========================================
-    // FORCE HLS.JS
-    // =========================================
+    console.log('URL:', hlsUrl);
 
-    if (Hls.isSupported()) {
+    // =====================================
+    // Native HLS
+    // =====================================
 
-        console.log('Using HLS.js');
+    // Banyak stream CCTV lebih cocok native
 
-        const hls = new Hls({
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
 
-            enableWorker: true,
+        console.log('Using native HLS');
 
-            lowLatencyMode: true,
+        video.src = hlsUrl;
 
-            backBufferLength: 90,
-
-            maxBufferLength: 30,
-
-            maxMaxBufferLength: 60,
-
-            liveSyncDurationCount: 3,
-
-            xhrSetup: function(xhr, url) {
-
-                // Kadang membantu bypass anti-leech
-
-                xhr.withCredentials = false;
-
-                xhr.setRequestHeader(
-                    'X-Requested-With',
-                    'XMLHttpRequest'
-                );
-
-            }
-
-        });
-
-        hls.loadSource(hlsUrl);
-
-        hls.attachMedia(video);
-
-        hls.on(Hls.Events.MANIFEST_PARSED, async function() {
-
-            console.log('Manifest loaded');
+        video.addEventListener('loadedmetadata', async () => {
 
             loading.style.display = 'none';
 
@@ -164,68 +132,106 @@ async function init() {
                 console.error(e);
 
             }
+        });
+
+        video.addEventListener('error', () => {
+
+            console.log('Native failed, fallback HLS.js');
+
+            startHlsJs(hlsUrl);
 
         });
 
-        hls.on(Hls.Events.LEVEL_LOADED, function() {
+        return;
+    }
 
-            console.log('Level loaded');
+    // =====================================
+    // HLS.js fallback
+    // =====================================
 
-        });
+    startHlsJs(hlsUrl);
+}
 
-        hls.on(Hls.Events.ERROR, function(event, data) {
+function startHlsJs(hlsUrl){
 
-            console.error('HLS Error:', data);
-
-            showError(
-                'HLS Error: ' +
-                data.type +
-                ' | ' +
-                data.details
-            );
-
-            // Auto recover
-
-            if (data.fatal) {
-
-                switch(data.type) {
-
-                    case Hls.ErrorTypes.NETWORK_ERROR:
-
-                        console.log('Recover NETWORK_ERROR');
-
-                        hls.startLoad();
-
-                        break;
-
-                    case Hls.ErrorTypes.MEDIA_ERROR:
-
-                        console.log('Recover MEDIA_ERROR');
-
-                        hls.recoverMediaError();
-
-                        break;
-
-                    default:
-
-                        console.log('Destroy HLS');
-
-                        hls.destroy();
-
-                        break;
-                }
-            }
-        });
-
-    } else {
+    if (!Hls.isSupported()) {
 
         showError('HLS not supported');
 
+        return;
     }
 
-    // =========================================
-    // VIDEO EVENTS
-    // =========================================
+    const hls = new Hls({
+
+        enableWorker: true,
+
+        lowLatencyMode: false,
+
+        backBufferLength: 30
+
+    });
+
+    hls.loadSource(hlsUrl);
+
+    hls.attachMedia(video);
+
+    hls.on(Hls.Events.MANIFEST_PARSED, async function() {
+
+        console.log('Manifest loaded');
+
+        loading.style.display = 'none';
+
+        try {
+
+            await video.play();
+
+        } catch(e) {
+
+            console.error(e);
+
+        }
+
+    });
+
+    hls.on(Hls.Events.ERROR, function(event, data) {
+
+        console.error(data);
+
+        showError(
+            'HLS Error: ' +
+            data.type +
+            ' | ' +
+            data.details
+        );
+
+        if (data.fatal) {
+
+            switch(data.type) {
+
+                case Hls.ErrorTypes.NETWORK_ERROR:
+
+                    console.log('Recover network');
+
+                    hls.startLoad();
+
+                    break;
+
+                case Hls.ErrorTypes.MEDIA_ERROR:
+
+                    console.log('Recover media');
+
+                    hls.recoverMediaError();
+
+                    break;
+
+                default:
+
+                    hls.destroy();
+
+                    break;
+            }
+        }
+    });
 
     video.addEventListener('playing', () => {
 
@@ -238,21 +244,6 @@ async function init() {
         loading.style.display = 'block';
 
     });
-
-    video.addEventListener('click', () => {
-
-        video.play().catch(() => {});
-
-    });
-
-    video.addEventListener('error', (e) => {
-
-        console.error(e);
-
-        showError('Video playback failed');
-
-    });
-
 }
 
 document.addEventListener('DOMContentLoaded', init);
