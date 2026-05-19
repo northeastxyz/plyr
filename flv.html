@@ -5,11 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Huya Full Proxy FLV Player</title>
     
-    <script>
-    !function(t,e){"object"==typeof exports&&"object"==typeof module?module.exports=e():"function"==typeof define&&define.amd?define([],e):"object"==typeof exports?exports.mpegts=e():t.mpegts=e()}(this,(function(){return function(t){var e={};function i(r){if(e[r])return e[r].exports;var n=e[r]={i:r,l:false,exports:{}};return t[r].call(n.exports,n,n.exports,i),n.l=true,n.exports}return i.m=t,i.c=e,i.d=function(t,e,r){i.o(t,e)||Object.defineProperty(t,e,{enumerable:true,get:r})},i.r=function(t){"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(t,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(t,"__esModule",{value:true})},i.t=function(t,e){if(1&e&&(t=i(t)),8&e)return t;if(4&e&&"object"==typeof t&&t&&t.__esModule)return t;var r=Object.create(null);if(i.r(r),Object.defineProperty(r,"default",{enumerable:true,value:t}),2&e&&"string"!=typeof t)for(var n in t)i.d(r,n,function(e){return t[e]}.bind(null,n));return r},i.n=function(t){var e=t&&t.__esModule?function(){return t.default}:function(){return t};return i.d(e,"a",e),e},i.o=function(t,e){return Object.prototype.hasOwnProperty.call(t,e)},i.p="",i(i.s=0)}([function(t,e,i){"use strict";Object.defineProperty(e,"__esModule",{value:true});var r=i(1),n=i(2);function o(t,e){var i=new r.default(t,e);return i}function s(){return n.default}var a={createPlayer:o,getFeatureList:s};e.default=a},function(t,e,i){"use strict";function r(t,e){this._type=t,this._config=e}r.prototype.attachMediaElement=function(t){this._mediaElement=t},r.prototype.load=function(){},r.prototype.play=function(){return this._mediaElement.play()},r.prototype.unload=function(){},r.prototype.detachMediaElement=function(){this._mediaElement=null},r.prototype.destroy=function(){},e.default=r},function(t,e,i){"use strict";Object.defineProperty(e,"__esModule",{value:true});var r={isSupported:true,mseFlvPlayback:true,mseHlsPlayback:false};e.default=r}])}));
-    // Menggunakan versi polyfill esensial terkompresi untuk memicu mpegts object secara global
-    window.mpegts=window.mpegts||{getFeatureList:function(){return{isSupported:true}},createPlayer:function(e,t){console.log("Mengaktifkan mode fallback decoder native/MSE");var n=document.getElementById("videoElement");return{attachMediaElement:function(e){n=e},load:function(){n.src=e.url},play:function(){return n.play()},unload:function(){n.removeAttribute("src"),n.load()},detachMediaElement:function(){},destroy:function(){}}}};</script>
-
+    <script src="mpegts.js"></script>
+    
     <style>
         * { box-sizing: border-box; }
         body {
@@ -72,6 +69,13 @@
             padding: 6px;
             border-radius: 4px;
         }
+        .error-msg {
+            color: #ef4444;
+            font-size: 13px;
+            text-align: center;
+            margin-top: 4px;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -82,7 +86,8 @@
         </div>
         <div class="controls-panel">
             <button class="btn-reload" id="reloadBtn">Reload Stream Proxy</button>
-            <div class="status-badge" id="streamUrlBadge">Inisialisasi internal player...</div>
+            <div class="status-badge" id="streamUrlBadge">Menghubungkan...</div>
+            <div class="error-msg" id="errorMsg">Stream Terputus atau Offline.</div>
         </div>
     </div>
 
@@ -91,14 +96,19 @@
             const videoElement = document.getElementById('videoElement');
             const reloadBtn = document.getElementById('reloadBtn');
             const streamUrlBadge = document.getElementById('streamUrlBadge');
+            const errorMsg = document.getElementById('errorMsg');
             let player = null;
 
-            // Membaca parameter roomId (?id=...)
+            // Membaca parameter query secara fleksibel
             const urlParams = new URLSearchParams(window.location.search);
-            const roomId = urlParams.get('id') || '30805928';
+            let finalProxyUrl = '';
 
-            const workersBaseUrl = 'https://flv.northeastxyz.workers.dev/'; 
-            const finalProxyUrl = `${workersBaseUrl}?id=${roomId}`;
+            if (urlParams.has('url')) {
+                finalProxyUrl = urlParams.get('url');
+            } else {
+                const roomId = urlParams.get('id') || '30805928';
+                finalProxyUrl = `https://flv.northeastxyz.workers.dev/?id=${roomId}`;
+            }
 
             streamUrlBadge.textContent = `Proxy: ${finalProxyUrl}`;
 
@@ -110,17 +120,20 @@
                     player = null;
                 }
 
-                // Object mpegts dijamin 'defined' karena sudah kita tanam di atas
-                if (mpegts.getFeatureList().isSupported) {
+                errorMsg.style.display = 'none';
+
+                // Mengecek keaslian object mpegts dari file lokal
+                if (typeof mpegts !== 'undefined' && mpegts.getFeatureList().isSupported) {
                     player = mpegts.createPlayer({
                         type: 'flv',
                         isLive: true,
                         url: finalProxyUrl,
                         cors: true
                     }, {
-                        enableWorker: false, // Di-disable untuk kompatibilitas penuh mode inline script
+                        enableWorker: true,
                         lazyLoad: false,
-                        liveBufferLatencyChasing: true
+                        liveBufferLatencyChasing: true,
+                        stashInitialSize: 32 // Dikecilkan ke 32KB agar transmisi data proxy langsung di-decode browser tanpa numpuk jadi download-an
                     });
 
                     player.attachMediaElement(videoElement);
@@ -128,8 +141,15 @@
                     
                     videoElement.muted = true;
                     player.play().catch(err => {
-                        console.log("Autoplay ditahan browser.", err);
+                        console.log("Autoplay ditahan browser, butuh klik manual.", err);
                     });
+
+                    player.on(mpegts.Events.ERROR, (type, detail, info) => {
+                        console.error('Mpegts Error:', type, detail, info);
+                        errorMsg.style.display = 'block';
+                    });
+                } else {
+                    alert('Browser tidak mendukung atau mpegts.js gagal dimuat dari lokal.');
                 }
             }
 
