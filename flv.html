@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Huya Full Proxy FLV Player</title>
     
-    <script src="https://unpkg.com/mpegts.js@1.7.3/dist/mpegts.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mpegts.js/1.6.2/mpegts.min.js"></script>
     
     <style>
-        * { box-sizing: border-box; }
+        * { 
+            box-sizing: border-box; 
+        }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
             background-color: #0b0b0c;
@@ -21,7 +23,7 @@
         }
         .player-container {
             width: 100%;
-            max-width: 480px; /* Sesuai dengan layout mobile/vertikal DevTools kamu */
+            max-width: 480px; /* Dioptimalkan untuk layout vertikal/mobile */
             background: #18181b;
             border-radius: 12px;
             overflow: hidden;
@@ -59,7 +61,9 @@
             cursor: pointer;
             transition: background 0.2s;
         }
-        .btn-reload:hover { background-color: #0f766e; }
+        .btn-reload:hover { 
+            background-color: #0f766e; 
+        }
         .status-badge {
             font-size: 12px;
             color: #a1a1aa;
@@ -68,6 +72,13 @@
             background: #27272a;
             padding: 6px;
             border-radius: 4px;
+        }
+        .error-msg {
+            color: #ef4444;
+            font-size: 13px;
+            text-align: center;
+            margin-top: 4px;
+            display: none;
         }
     </style>
 </head>
@@ -79,7 +90,8 @@
         </div>
         <div class="controls-panel">
             <button class="btn-reload" id="reloadBtn">Reload Stream Proxy</button>
-            <div class="status-badge" id="streamUrlBadge">Loading URL...</div>
+            <div class="status-badge" id="streamUrlBadge">Menghubungkan ke Proxy...</div>
+            <div class="error-msg" id="errorMsg">Stream terputus atau offline. Silakan klik Reload.</div>
         </div>
     </div>
 
@@ -88,21 +100,22 @@
             const videoElement = document.getElementById('videoElement');
             const reloadBtn = document.getElementById('reloadBtn');
             const streamUrlBadge = document.getElementById('streamUrlBadge');
+            const errorMsg = document.getElementById('errorMsg');
             let player = null;
 
-            // 1. Ambil ID room dari URL (misal: flv.html?id=30805928)
+            // 1. Ambil ID room dari URL browser (contoh: flv.html?id=30805928)
             const urlParams = new URLSearchParams(window.location.search);
             const roomId = urlParams.get('id') || '30805928';
 
-            // 2. Arahkan KE ENDPOINT WORKERS KAMU SENDIRI
-            // Karena Workers bertindak sebagai Full Proxy, masukkan base URL workers di sini
+            // 2. Base URL Cloudflare Workers Full Proxy milikmu
             const workersBaseUrl = 'https://flv.northeastxyz.workers.dev/'; 
             const finalProxyUrl = `${workersBaseUrl}?id=${roomId}`;
 
-            // Tampilkan URL di badge untuk memastikan tidak ada salah ketik parameter
+            // Tampilkan info URL proxy yang sedang aktif
             streamUrlBadge.textContent = `Proxying: ${finalProxyUrl}`;
 
             function startLiveStream() {
+                // Bersihkan instance player lama sebelum re-init (mencegah memory leak)
                 if (player !== null) {
                     player.unload();
                     player.detachMediaElement();
@@ -110,38 +123,47 @@
                     player = null;
                 }
 
-                if (mpegts.getFeatureList().isSupported) {
-                    // Konfigurasi khusus untuk performa Full Proxy (Low Latency)
+                errorMsg.style.display = 'none';
+
+                if (typeof mpegts !== 'undefined' && mpegts.getFeatureList().isSupported) {
+                    // Konfigurasi performa tinggi untuk jalur Full Proxy (Low Latency)
                     player = mpegts.createPlayer({
                         type: 'flv',
                         isLive: true,
                         url: finalProxyUrl,
-                        cors: true // Selaras dengan header Access-Control-Allow-Origin di Workers
+                        cors: true
                     }, {
-                        enableWorker: true,        // Memisahkan proses decoding ke thread tersendiri agar tidak lag
-                        lazyLoad: false,           // Matikan lazy load agar data terus ditarik secara realtime
-                        liveBufferLatencyChasing: true, // Otomatis mengejar sisa buffer agar tidak delay/tertinggal jauh
-                        stashInitialSize: 128      // Ukuran buffer awal dalam KB (semakin kecil, semakin instan menyala)
+                        enableWorker: true,             // Encoding di thread terpisah agar UI lancar
+                        lazyLoad: false,                // Matikan lazy load agar data terus ditarik konstan
+                        liveBufferLatencyChasing: true, // Otomatis skip buffer jika player tertinggal dari server
+                        stashInitialSize: 128           // Ukuran awal buffer dalam KB (bikin loading awal instan)
                     });
 
                     player.attachMediaElement(videoElement);
                     player.load();
                     
-                    // Kebijakan browser: Harus mute jika ingin memaksa autoplay
+                    // Browser modern mewajibkan suara dimatikan (muted) untuk bisa autoplay
                     videoElement.muted = true;
                     
                     player.play().catch(err => {
-                        console.log("Autoplay dicegah browser, silakan klik play manual.", err);
+                        console.log("Autoplay ditahan browser, klik play manual.", err);
                     });
+
+                    // Tangkap error jika proxy putus di tengah jalan
+                    player.on(mpegts.Events.ERROR, (type, detail, info) => {
+                        console.error('Player Error:', type, detail, info);
+                        errorMsg.style.display = 'block';
+                    });
+
                 } else {
-                    alert('Browser tidak mendukung mpegts.js');
+                    alert('Gagal mendeteksi library mpegts.js atau browser tidak mendukung.');
                 }
             }
 
-            // Jalankan player saat halaman dimuat
+            // Jalankan player otomatis saat halaman dibuka
             startLiveStream();
 
-            // Handler tombol reload
+            // Handler untuk tombol reload proxy
             reloadBtn.addEventListener('click', startLiveStream);
         });
     </script>
