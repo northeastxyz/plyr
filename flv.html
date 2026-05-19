@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Huya Full Proxy FLV Player</title>
     
-    <script src="mpegts.js"></script>
+    <script src="https://northeastxyz.github.io/plyr/mpegts.js" onerror="let s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/mpegts.js/1.7.3/mpegts.min.js';document.head.appendChild(s);"></script>
     
     <style>
         * { box-sizing: border-box; }
@@ -69,13 +69,6 @@
             padding: 6px;
             border-radius: 4px;
         }
-        .error-msg {
-            color: #ef4444;
-            font-size: 13px;
-            text-align: center;
-            margin-top: 4px;
-            display: none;
-        }
     </style>
 </head>
 <body>
@@ -87,7 +80,6 @@
         <div class="controls-panel">
             <button class="btn-reload" id="reloadBtn">Reload Stream Proxy</button>
             <div class="status-badge" id="streamUrlBadge">Menghubungkan...</div>
-            <div class="error-msg" id="errorMsg">Stream Terputus atau Offline.</div>
         </div>
     </div>
 
@@ -96,19 +88,11 @@
             const videoElement = document.getElementById('videoElement');
             const reloadBtn = document.getElementById('reloadBtn');
             const streamUrlBadge = document.getElementById('streamUrlBadge');
-            const errorMsg = document.getElementById('errorMsg');
             let player = null;
 
-            // Membaca parameter query secara fleksibel
             const urlParams = new URLSearchParams(window.location.search);
-            let finalProxyUrl = '';
-
-            if (urlParams.has('url')) {
-                finalProxyUrl = urlParams.get('url');
-            } else {
-                const roomId = urlParams.get('id') || '30805928';
-                finalProxyUrl = `https://flv.northeastxyz.workers.dev/?id=${roomId}`;
-            }
+            const roomId = urlParams.get('id') || '30805928';
+            const finalProxyUrl = `https://flv.northeastxyz.workers.dev/?id=${roomId}`;
 
             streamUrlBadge.textContent = `Proxy: ${finalProxyUrl}`;
 
@@ -120,9 +104,6 @@
                     player = null;
                 }
 
-                errorMsg.style.display = 'none';
-
-                // Mengecek keaslian object mpegts dari file lokal
                 if (typeof mpegts !== 'undefined' && mpegts.getFeatureList().isSupported) {
                     player = mpegts.createPlayer({
                         type: 'flv',
@@ -133,27 +114,22 @@
                         enableWorker: true,
                         lazyLoad: false,
                         liveBufferLatencyChasing: true,
-                        stashInitialSize: 32 // Dikecilkan ke 32KB agar transmisi data proxy langsung di-decode browser tanpa numpuk jadi download-an
+                        stashInitialSize: 32
                     });
 
                     player.attachMediaElement(videoElement);
                     player.load();
                     
                     videoElement.muted = true;
-                    player.play().catch(err => {
-                        console.log("Autoplay ditahan browser, butuh klik manual.", err);
-                    });
-
-                    player.on(mpegts.Events.ERROR, (type, detail, info) => {
-                        console.error('Mpegts Error:', type, detail, info);
-                        errorMsg.style.display = 'block';
-                    });
+                    player.play().catch(err => console.log("Autoplay ditahan browser.", err));
                 } else {
-                    alert('Browser tidak mendukung atau mpegts.js gagal dimuat dari lokal.');
+                    // Jika gagal memuat, tunggu 1 detik lalu coba lagi secara otomatis
+                    setTimeout(startLiveStream, 1000);
                 }
             }
 
-            startLiveStream();
+            // Jalankan stream dengan sedikit jeda agar library siap
+            setTimeout(startLiveStream, 500);
             reloadBtn.addEventListener('click', startLiveStream);
         });
     </script>
