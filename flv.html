@@ -1,456 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-
-<meta charset="UTF-8" />
-
-<meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-/>
-
-<title>Professional FLV Live Player</title>
-
-<script src="https://cdn.jsdelivr.net/npm/mpegts.js@latest"></script>
-
-<style>
-
-*{
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
-}
-
-html,body{
-
-    width:100%;
-    height:100%;
-
-    background:#050505;
-
-    font-family:
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
-        Roboto,
-        sans-serif;
-
-    overflow:hidden;
-}
-
-body{
-
-    display:flex;
-
-    justify-content:center;
-
-    align-items:center;
-}
-
-.player{
-
-    width:100%;
-    height:100%;
-
-    position:relative;
-
-    background:black;
-}
-
-video{
-
-    width:100%;
-    height:100%;
-
-    object-fit:contain;
-
-    background:black;
-}
-
-/* =========================
-TOPBAR
-========================= */
-
-.topbar{
-
-    position:absolute;
-
-    top:14px;
-    left:14px;
-    right:14px;
-
-    display:flex;
-
-    justify-content:space-between;
-
-    align-items:center;
-
-    z-index:50;
-}
-
-.live{
-
-    display:flex;
-
-    align-items:center;
-
-    gap:8px;
-
-    background:rgba(0,0,0,.55);
-
-    backdrop-filter:blur(10px);
-
-    padding:10px 14px;
-
-    border-radius:999px;
-
-    color:white;
-
-    font-size:13px;
-
-    font-weight:700;
-}
-
-.dot{
-
-    width:10px;
-    height:10px;
-
-    border-radius:50%;
-
-    background:#ff2d55;
-
-    animation:pulse 1s infinite;
-}
-
-@keyframes pulse{
-
-    0%{
-        transform:scale(.8);
-        opacity:.6;
-    }
-
-    50%{
-        transform:scale(1.2);
-        opacity:1;
-    }
-
-    100%{
-        transform:scale(.8);
-        opacity:.6;
-    }
-}
-
-/* =========================
-BOTTOM PANEL
-========================= */
-
-.controls{
-
-    position:absolute;
-
-    left:14px;
-    right:14px;
-    bottom:14px;
-
-    z-index:50;
-}
-
-.panel{
-
-    background:rgba(0,0,0,.55);
-
-    backdrop-filter:blur(14px);
-
-    border-radius:18px;
-
-    padding:14px;
-
-    color:white;
-}
-
-.status{
-
-    font-size:13px;
-
-    color:#b3b3b3;
-
-    margin-bottom:12px;
-
-    word-break:break-all;
-}
-
-.row{
-
-    display:flex;
-
-    gap:10px;
-}
-
-button,select,input{
-
-    border:none;
-
-    outline:none;
-
-    background:#18181b;
-
-    color:white;
-
-    border-radius:12px;
-
-    padding:12px;
-
-    font-size:14px;
-}
-
-button{
-
-    cursor:pointer;
-}
-
-button:hover{
-
-    background:#232327;
-}
-
-input{
-
-    width:100%;
-}
-
-select{
-
-    width:120px;
-}
-
-.loader{
-
-    position:absolute;
-
-    inset:0;
-
-    background:rgba(0,0,0,.45);
-
-    backdrop-filter:blur(3px);
-
-    display:flex;
-
-    justify-content:center;
-
-    align-items:center;
-
-    z-index:40;
-}
-
-.spinner{
-
-    width:60px;
-    height:60px;
-
-    border-radius:50%;
-
-    border:4px solid rgba(255,255,255,.12);
-
-    border-top-color:white;
-
-    animation:spin .8s linear infinite;
-}
-
-@keyframes spin{
-
-    to{
-        transform:rotate(360deg);
-    }
-}
-
-.hidden{
-    display:none !important;
-}
-
-.error{
-
-    color:#ff5b5b;
-
-    margin-top:12px;
-
-    font-size:13px;
-
-    display:none;
-}
-
-.fullscreen{
-
-    position:absolute;
-
-    right:14px;
-    bottom:170px;
-
-    width:48px;
-    height:48px;
-
-    border:none;
-
-    border-radius:14px;
-
-    background:rgba(0,0,0,.55);
-
-    backdrop-filter:blur(10px);
-
-    color:white;
-
-    z-index:60;
-
-    cursor:pointer;
-}
-
-.stats{
-
-    margin-top:10px;
-
-    font-size:12px;
-
-    color:#888;
-}
-
-@media(max-width:700px){
-
-    .controls{
-
-        left:10px;
-        right:10px;
-        bottom:10px;
-    }
-
-    .topbar{
-
-        left:10px;
-        right:10px;
-        top:10px;
-    }
-}
-
-</style>
-
-</head>
-
-<body>
-
-<div class="player">
-
-    <video
-        id="video"
-        controls
-        autoplay
-        muted
-        playsinline
-        webkit-playsinline
-        x5-playsinline>
-    </video>
-
-    <div class="loader" id="loader">
-
-        <div class="spinner"></div>
-
-    </div>
-
-    <div class="topbar">
-
-        <div class="live">
-
-            <div class="dot"></div>
-
-            LIVE
-
-        </div>
-
-        <select id="quality">
-
-            <option value="1080">1080p</option>
-
-            <option value="720" selected>
-                720p
-            </option>
-
-            <option value="480">480p</option>
-
-            <option value="360">360p</option>
-
-        </select>
-
-    </div>
-
-    <button
-        class="fullscreen"
-        id="fullscreenBtn">
-
-        ⛶
-
-    </button>
-
-    <div class="controls">
-
-        <div class="panel">
-
-            <div
-                class="status"
-                id="status">
-
-                Initializing...
-
-            </div>
-
-            <div class="row">
-
-                <input
-                    id="streamInput"
-                    placeholder="Paste FLV URL"
-                />
-
-            </div>
-
-            <br>
-
-            <div class="row">
-
-                <button id="playBtn">
-                    Play Stream
-                </button>
-
-                <button id="reloadBtn">
-                    Reload
-                </button>
-
-            </div>
-
-            <div
-                class="error"
-                id="errorBox">
-
-                Stream disconnected.
-                Reconnecting...
-
-            </div>
-
-            <div
-                class="stats"
-                id="stats">
-
-                Waiting stream...
-
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-
 <script>
-
-// =========================
-// ELEMENT
-// =========================
 
 const video =
     document.getElementById('video');
@@ -473,12 +21,6 @@ const fullscreenBtn =
 const reloadBtn =
     document.getElementById('reloadBtn');
 
-const playBtn =
-    document.getElementById('playBtn');
-
-const streamInput =
-    document.getElementById('streamInput');
-
 const statsBox =
     document.getElementById('stats');
 
@@ -494,31 +36,21 @@ let watchdogTimer = null;
 
 let reconnectCount = 0;
 
-let currentUrl = null;
-
 // =========================
-// URL PARAM
+// AUTO URL
 // =========================
 
-const params =
-    new URLSearchParams(location.search);
+// RAW FLV URL
+const rawStream = `https://gabriel-zum-consultancy-plasma.trycloudflare.com/https://flvhspull2mgsplive.miguvideo.com/mglive/mgss150_51.flv?msisdn=784f8113d8be6ac956e87e3eee4bba5e&mdspid=&spid=800033&netType=0&sid=7510484663&pid=2028597139&timestamp=20260521220610&Channel_ID=0116_2600034600-99000-201600010010028&ProgramID=964849605&ParentNodeID=-99&assertID=7510484663&client_ip=82.157.96.134&SecurityKey=20260521220610&promotionId=&mvid=7510241997&mcid=500020&mpid=120000577269&playurlVersion=ZQ-A1-9.5.1-RELEASE&userid=&jmhm=&videocodec=h264&appCode=miguvideo_android&bean=mgspad&tid=android&conFee=0&encrypt=cbed50b3e1e8e7e950882c6a01e0ca0d&sv=10004&ct=android`;
 
-const rawUrl =
-    params.get('url');
+// AUTO ENCODE
+const currentUrl =
+    encodeURI(rawStream);
 
-// =========================
-// AUTO INPUT
-// =========================
-
-if(rawUrl){
-
-    const decoded =
-        decodeURIComponent(rawUrl);
-
-    streamInput.value = decoded;
-
-    currentUrl = decoded;
-}
+console.log(
+    'ENCODED URL:',
+    currentUrl
+);
 
 // =========================
 // STATUS
@@ -627,15 +159,6 @@ function reconnect(){
 
 function startPlayer(){
 
-    if(!currentUrl){
-
-        setStatus(
-            'Paste FLV URL first'
-        );
-
-        return;
-    }
-
     destroyPlayer();
 
     showLoader();
@@ -710,8 +233,24 @@ function startPlayer(){
 
     player.load();
 
+    // AUTOPLAY
+    video.muted = true;
+
     video.play()
-        .catch(console.warn);
+        .then(() => {
+
+            console.log(
+                'Autoplay success'
+            );
+
+        })
+        .catch(err => {
+
+            console.warn(
+                'Autoplay blocked',
+                err
+            );
+        });
 
     // =========================
     // PLAYER ERROR
@@ -798,41 +337,6 @@ video.addEventListener(
 video.addEventListener(
     'error',
     reconnect
-);
-
-// =========================
-// PLAY BUTTON
-// =========================
-
-playBtn.addEventListener(
-    'click',
-    () => {
-
-        const raw =
-            streamInput.value.trim();
-
-        if(!raw){
-
-            alert(
-                'Paste FLV URL'
-            );
-
-            return;
-        }
-
-        currentUrl = raw;
-
-        reconnectCount = 0;
-
-        startPlayer();
-
-        // UPDATE URL
-        history.replaceState(
-            null,
-            '',
-            `?url=${encodeURIComponent(raw)}`
-        );
-    }
 );
 
 // =========================
@@ -927,7 +431,10 @@ document.addEventListener(
     }
 );
 
-</script>
+// =========================
+// AUTO START
+// =========================
 
-</body>
-</html>
+startPlayer();
+
+</script>
