@@ -345,6 +345,8 @@ select{
     color:#999;
 
     line-height:1.6;
+
+    word-break:break-all;
 }
 
 @media(max-width:700px){
@@ -392,10 +394,10 @@ select{
         </h1>
 
         <p>
-            Add:
+            Example:
             <br><br>
 
-            ?url=https://your-flv-url
+            flv.html?url=https://example.com/live.flv?token=abc&sid=123
         </p>
 
     </div>
@@ -545,20 +547,29 @@ let watchdogTimer = null;
 let reconnectCount = 0;
 
 // =========================
-// URL PARAM
+// GET FULL URL PARAM
 // =========================
 
-const params =
-    new URLSearchParams(
-        window.location.search
+function getRawUrl(){
+
+    const href =
+        window.location.href;
+
+    const index =
+        href.indexOf('?url=');
+
+    if(index === -1){
+
+        return null;
+    }
+
+    return href.substring(
+        index + 5
     );
+}
 
 const rawUrl =
-    params.get('url');
-
-// =========================
-// CURRENT URL
-// =========================
+    getRawUrl();
 
 let currentUrl = null;
 
@@ -575,17 +586,17 @@ if(
         decodeURIComponent(rawUrl);
 
     console.log(
-        'STREAM URL:',
+        'FULL STREAM URL:',
         currentUrl
     );
 
 }else{
 
-    console.warn(
-        'No FLV URL'
-    );
-
     currentUrl = null;
+
+    console.warn(
+        'No stream URL'
+    );
 }
 
 // =========================
